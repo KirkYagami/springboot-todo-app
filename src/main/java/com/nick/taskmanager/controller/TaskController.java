@@ -5,6 +5,7 @@ import com.nick.taskmanager.service.TaskService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,89 +22,90 @@ public class TaskController {
         this.taskService = taskService;
     }
 
+    // ── Helper: extract username from Spring Security context ─────────
+    private String username(Authentication auth) {
+        return auth.getName();
+    }
+
     @PostMapping
-    public ResponseEntity<Task> createTask(@RequestBody Task task) {
+    public ResponseEntity<Task> createTask(@RequestBody Task task, Authentication auth) {
         try {
-            Task createdTask = taskService.createTask(task);
-            return ResponseEntity.status(HttpStatus.CREATED).body(createdTask);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(taskService.createTask(task, username(auth)));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     @GetMapping
-    public ResponseEntity<List<Task>> getAllTasks() {
+    public ResponseEntity<List<Task>> getAllTasks(Authentication auth) {
         try {
-            List<Task> tasks = taskService.getAllTasks();
-            if (tasks.isEmpty()) {
-                return ResponseEntity.noContent().build();
-            }
-            return ResponseEntity.ok(tasks);
+            List<Task> tasks = taskService.getAllTasks(username(auth));
+            return tasks.isEmpty()
+                    ? ResponseEntity.noContent().build()
+                    : ResponseEntity.ok(tasks);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Task> getTaskById(@PathVariable Long id) {
-        Optional<Task> taskData = taskService.getTaskById(id);
-        return taskData
-                .map(ResponseEntity::ok)
+    public ResponseEntity<Task> getTaskById(@PathVariable Long id, Authentication auth) {
+        Optional<Task> task = taskService.getTaskById(id, username(auth));
+        return task.map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Task> updateTask(@PathVariable Long id, @RequestBody Task task) {
-        Task updatedTask = taskService.updateTask(id, task);
-        if (updatedTask != null) {
-            return ResponseEntity.ok(updatedTask);
-        }
-        return ResponseEntity.notFound().build();
+    public ResponseEntity<Task> updateTask(@PathVariable Long id,
+                                           @RequestBody Task task,
+                                           Authentication auth) {
+        Task updated = taskService.updateTask(id, task, username(auth));
+        return updated != null
+                ? ResponseEntity.ok(updated)
+                : ResponseEntity.notFound().build();
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteTask(@PathVariable Long id, Authentication auth) {
         try {
-            boolean deleted = taskService.deleteTask(id);
-            if (deleted) {
-                return ResponseEntity.noContent().build();
-            }
-            return ResponseEntity.notFound().build();
+            return taskService.deleteTask(id, username(auth))
+                    ? ResponseEntity.noContent().build()
+                    : ResponseEntity.notFound().build();
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     @PatchMapping("/{id}/complete")
-    public ResponseEntity<Task> markComplete(@PathVariable Long id) {
-        Task task = taskService.markComplete(id);
-        if (task != null) {
-            return ResponseEntity.ok(task);
-        }
-        return ResponseEntity.notFound().build();
+    public ResponseEntity<Task> markComplete(@PathVariable Long id, Authentication auth) {
+        Task task = taskService.markComplete(id, username(auth));
+        return task != null
+                ? ResponseEntity.ok(task)
+                : ResponseEntity.notFound().build();
     }
 
     @GetMapping("/status/{completed}")
-    public ResponseEntity<List<Task>> getTasksByStatus(@PathVariable boolean completed) {
+    public ResponseEntity<List<Task>> getTasksByStatus(@PathVariable boolean completed,
+                                                       Authentication auth) {
         try {
-            List<Task> tasks = taskService.getTasksByStatus(completed);
-            if (tasks.isEmpty()) {
-                return ResponseEntity.noContent().build();
-            }
-            return ResponseEntity.ok(tasks);
+            List<Task> tasks = taskService.getTasksByStatus(completed, username(auth));
+            return tasks.isEmpty()
+                    ? ResponseEntity.noContent().build()
+                    : ResponseEntity.ok(tasks);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<Task>> searchTasks(@RequestParam String keyword) {
+    public ResponseEntity<List<Task>> searchTasks(@RequestParam String keyword,
+                                                  Authentication auth) {
         try {
-            List<Task> tasks = taskService.searchTasks(keyword);
-            if (tasks.isEmpty()) {
-                return ResponseEntity.noContent().build();
-            }
-            return ResponseEntity.ok(tasks);
+            List<Task> tasks = taskService.searchTasks(keyword, username(auth));
+            return tasks.isEmpty()
+                    ? ResponseEntity.noContent().build()
+                    : ResponseEntity.ok(tasks);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
